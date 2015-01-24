@@ -1,0 +1,47 @@
+-- Downtown Video
+
+CREATE TABLE film (
+	id				integer PRIMARY KEY,		
+	title			varchar[100],
+	description		varchar[500],
+	rating			double,
+	length			integer
+);
+
+CREATE TABLE vid_customer (
+	id				integer PRIMARY KEY,
+	given_name		varchar[50],
+	surname			varchar[50],
+	email			varchar[50],
+	cust_address	integer REFERENCES address
+);
+
+CREATE TABLE address (
+	id				integer PRIMARY KEY,
+	street			varchar[100],
+	city 			varchar[100],
+	state			varchar[50],
+	post_code		integer,
+	phone_number	varchar[50]
+);
+
+-- City Books
+
+CREATE TABLE book (
+	title			varchar[100],
+	book_author		integer REFERENCES author
+	PRIMARY KEY (title, book_author)
+);
+
+CREATE TABLE author (
+	given_name		varchar[50],
+	surname			varchar[50],
+	PRIMARY KEY (given_name, surname)
+);
+
+CREATE TABLE book_customer (
+	id				integer PRIMARY KEY,
+	given_name		varchar[50],
+	surname			varchar[50],
+	phone			integer
+);
