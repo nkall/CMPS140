@@ -123,24 +123,40 @@ class MinimaxAgent(MultiAgentSearchAgent):
     """
       Returns the minimax action from the current gameState using self.depth
       and self.evaluationFunction.
-
-      Here are some method calls that might be useful when implementing minimax.
-
-      gameState.getLegalActions(agentIndex):
-        Returns a list of legal actions for an agent
-        agentIndex=0 means Pacman, ghosts are >= 1
-
-      Directions.STOP:
-        The stop direction, which is always legal
-
-      gameState.generateSuccessor(agentIndex, action):
-        Returns the successor game state after an agent takes an action
-
-      gameState.getNumAgents():
-        Returns the total number of agents in the game
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    (_, bestDirection) = self.runMinimax(gameState, 0, self.depth)
+    return bestDirection
+
+  # Returns tuples of (<score>, <path towards achieving that score>)
+  # In hindsight, there's no real need to keep track of anything but the 'top' action
+  def runMinimax(self, gameState, currAgentNum, depthRemaining):
+    if depthRemaining is 0 or not gameState.getLegalActions(currAgentNum):
+      return (self.evaluationFunction(gameState), Directions.STOP)
+
+    nextAgentNum = currAgentNum + 1       # Number of agent to eval next
+    nextDepthRemaining = depthRemaining   # Remaining depth after next eval
+    # If done with all ghosts, decrease depth and go to Pacman
+    if nextAgentNum >= gameState.getNumAgents():
+      nextAgentNum = 0
+      nextDepthRemaining -= 1
+
+    chosenMini = None # 'Best' path tuple, either min or max
+    if currAgentNum is 0:   # Evaluate max
+      for action in gameState.getLegalActions(currAgentNum):
+        successorState = gameState.generateSuccessor(currAgentNum, action)
+        (currVal, _) = self.runMinimax(successorState, nextAgentNum, nextDepthRemaining)
+        # If new score is the maximum, save that value and the action
+        if (chosenMini is None) or (currVal > chosenMini[0]):
+          chosenMini = (currVal, action)
+    else:   # Evaluate min
+      for action in gameState.getLegalActions(currAgentNum):
+        successorState = gameState.generateSuccessor(currAgentNum, action)
+        (currVal, _) = self.runMinimax(successorState, nextAgentNum, nextDepthRemaining)
+        # If new score is the maximum, save that value and the action
+        if (chosenMini is None) or (currVal < chosenMini[0]):
+          chosenMini = (currVal, action)
+    return chosenMini
+
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
   """
