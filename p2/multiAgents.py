@@ -127,8 +127,9 @@ class MinimaxAgent(MultiAgentSearchAgent):
     (_, bestDirection) = self.runMinimax(gameState, 0, self.depth)
     return bestDirection
 
-  # Returns tuples of (<score>, <path towards achieving that score>)
+  # Returns tuples of (<score>, <action towards going down that path>)
   # In hindsight, there's no real need to keep track of anything but the 'top' action
+  # I did something a bit more sensible with the AlphaBetaAgent
   def runMinimax(self, gameState, currAgentNum, depthRemaining):
     if depthRemaining is 0 or not gameState.getLegalActions(currAgentNum):
       return (self.evaluationFunction(gameState), Directions.STOP)
@@ -152,7 +153,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
       for action in gameState.getLegalActions(currAgentNum):
         successorState = gameState.generateSuccessor(currAgentNum, action)
         (currVal, _) = self.runMinimax(successorState, nextAgentNum, nextDepthRemaining)
-        # If new score is the maximum, save that value and the action
+        # If new score is the minimum, save that value and the action
         if (chosenMini is None) or (currVal < chosenMini[0]):
           chosenMini = (currVal, action)
     return chosenMini
@@ -162,13 +163,73 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
   """
     Your minimax agent with alpha-beta pruning (question 3)
   """
-
   def getAction(self, gameState):
     """
       Returns the minimax action using self.depth and self.evaluationFunction
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    possibleActions = gameState.getLegalActions(0)
+    if not possibleActions:
+      return Directions.STOP
+
+    # This time, since we only care about the first action in the tree,
+    # we'll just run AlphaBeta for each initial action possibility
+    bestAction = Directions.STOP
+    bestScore = None
+    for action in possibleActions:
+      newState = gameState.generateSuccessor(0, action)
+      newScore = self.runAlphaBeta(newState, 1, self.depth, 
+                                   float("-inf"), float("inf"))
+      if bestScore is None or newScore > bestScore:
+        bestScore = newScore
+        bestAction = action
+    return bestAction
+
+  # Returns score of going down a given path based on eval function
+  def runAlphaBeta(self, gameState, currAgentNum, depthRemaining, alpha, beta):
+    if depthRemaining is 0 or not gameState.getLegalActions(currAgentNum):
+      return self.evaluationFunction(gameState)
+
+    nextAgentNum = currAgentNum + 1       # Number of agent to eval next
+    nextDepthRemaining = depthRemaining   # Remaining depth after next eval
+    # If done with all ghosts, decrease depth and go to Pacman
+    if nextAgentNum >= gameState.getNumAgents():
+      nextAgentNum = 0
+      nextDepthRemaining -= 1
+
+    bestScore = None
+    newAlpha = alpha
+    newBeta = beta
+    if currAgentNum is 0:   # Evaluate max
+      for action in gameState.getLegalActions(currAgentNum):
+        successor = gameState.generateSuccessor(currAgentNum, action)
+        newScore = self.runAlphaBeta(successor, nextAgentNum,
+                                     nextDepthRemaining, newAlpha, newBeta)
+        # If new score is the best, set best
+        if bestScore is None or newScore > bestScore:
+          bestScore = newScore
+        # If new score is more than alpha, change alpha
+        if bestScore > newAlpha:
+          newAlpha = bestScore
+        # Stop searching nodes if not viable
+        if newBeta <= newAlpha:
+          break
+    else:   # Evaluate min
+      newBeta = beta
+      for action in gameState.getLegalActions(currAgentNum):
+        successor = gameState.generateSuccessor(currAgentNum, action)
+        newScore = self.runAlphaBeta(successor, nextAgentNum, 
+                                    nextDepthRemaining, newAlpha, newBeta)
+        # If new score is the best, set best
+        if bestScore is None or newScore < bestScore:
+          bestScore = newScore
+        # If new score is less than beta, change beta
+        if bestScore < newBeta:
+          newBeta = bestScore
+        # Stop searching nodes if not viable
+        if newBeta <= newAlpha and nextAgentNum is 0:
+          break
+    return bestScore
+
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
   """
@@ -184,6 +245,37 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
     """
     "*** YOUR CODE HERE ***"
     util.raiseNotDefined()
+'''
+  def runExpectimax(self, gameState, currAgentNum, depthRemaining, alpha, beta):
+    if depthRemaining is 0 or not gameState.getLegalActions(currAgentNum):
+      return self.evaluationFunction(gameState)
+
+    nextAgentNum = currAgentNum + 1       # Number of agent to eval next
+    nextDepthRemaining = depthRemaining   # Remaining depth after next eval
+    # If done with all ghosts, decrease depth and go to Pacman
+    if nextAgentNum >= gameState.getNumAgents():
+      nextAgentNum = 0
+      nextDepthRemaining -= 1
+
+    bestScore = None
+    if currAgentNum is 0:   # Evaluate max
+      for action in gameState.getLegalActions(currAgentNum):
+        successor = gameState.generateSuccessor(currAgentNum, action)
+        newScore = self.runExpectimax(successor, nextAgentNum,
+                                     nextDepthRemaining)
+        # If new score is the best, set best
+        if bestScore is None or newScore > bestScore:
+          bestScore = newScore
+        # If new score is more than alpha, change alpha
+        if bestScore > newAlpha:
+          newAlpha = bestScore
+        # Stop searching nodes if not viable
+        if newBeta <= newAlpha:
+          break
+    else:   # Evaluate min
+      
+    return bestScore
+'''
 
 def betterEvaluationFunction(currentGameState):
   """
