@@ -65,24 +65,33 @@ class ReflexAgent(Agent):
     newPos = successorGameState.getPacmanPosition()
     oldFood = currentGameState.getFood()
     newGhostStates = successorGameState.getGhostStates()
-    newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
+    #newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
-    # Calculate average distance from food to detract from score
+    # Calculate average distance from each food pellet
     foodList = oldFood.asList()
     foodDistances = []
     for food in foodList:
       foodDistances.append(manhattanDistance(newPos, food))
     avgFoodDist = sum(foodDistances) / len(foodList)
+    if avgFoodDist < 1: # Modulo error prevention
+      avgFoodDist = 1
 
-    # Reward Pacman for being further from ghosts
+    # Calculate distance to nearest food pellet
+    minFoodDist = min(foodDistances)
+    if minFoodDist < 1: # Modulo error prevention
+      minFoodDist = 1
+
+    # Reward Pacman for being further from the nearest ghost
     ghostDistances = [manhattanDistance(newPos, ghostState.getPosition()) 
                         for ghostState in newGhostStates]
-    # Double distance so Pacman values safety over pellets, but snap the
-    # distance to limit so Pacman doesn't cower in a corner
-    minGhostDistance = min(ghostDistances) * 2
-    if minGhostDistance > 15:
-      minGhostDistance = 15;
-    return successorGameState.getScore() + minGhostDistance - avgFoodDist
+    minGhostDistance = min(ghostDistances)
+    if minGhostDistance > 3: # We only really care if it's fairly close to us
+      minGhostDistance = 3;
+    if minGhostDistance < 1: # Modulo error prevention
+      minGhostDistance = 1
+
+    return successorGameState.getScore() + (100 / minFoodDist) + \
+             (100 / avgFoodDist) - (100 / minGhostDistance)
 
 def scoreEvaluationFunction(currentGameState):
   """
@@ -131,6 +140,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
   # In hindsight, there's no real need to keep track of anything but the 'top' action
   # I did something a bit more sensible with the AlphaBetaAgent
   def runMinimax(self, gameState, currAgentNum, depthRemaining):
+    # Return if stuck or at leaf node
     if depthRemaining is 0 or not gameState.getLegalActions(currAgentNum):
       return (self.evaluationFunction(gameState), Directions.STOP)
 
@@ -144,15 +154,15 @@ class MinimaxAgent(MultiAgentSearchAgent):
     chosenMini = None # 'Best' path tuple, either min or max
     if currAgentNum is 0:   # Evaluate max
       for action in gameState.getLegalActions(currAgentNum):
-        successorState = gameState.generateSuccessor(currAgentNum, action)
-        (currVal, _) = self.runMinimax(successorState, nextAgentNum, nextDepthRemaining)
+        successor = gameState.generateSuccessor(currAgentNum, action)
+        (currVal, _) = self.runMinimax(successor, nextAgentNum, nextDepthRemaining)
         # If new score is the maximum, save that value and the action
         if (chosenMini is None) or (currVal > chosenMini[0]):
           chosenMini = (currVal, action)
     else:   # Evaluate min
       for action in gameState.getLegalActions(currAgentNum):
-        successorState = gameState.generateSuccessor(currAgentNum, action)
-        (currVal, _) = self.runMinimax(successorState, nextAgentNum, nextDepthRemaining)
+        successor = gameState.generateSuccessor(currAgentNum, action)
+        (currVal, _) = self.runMinimax(successor, nextAgentNum, nextDepthRemaining)
         # If new score is the minimum, save that value and the action
         if (chosenMini is None) or (currVal < chosenMini[0]):
           chosenMini = (currVal, action)
@@ -186,6 +196,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
 
   # Returns score of going down a given path based on eval function
   def runAlphaBeta(self, gameState, currAgentNum, depthRemaining, alpha, beta):
+    # Return if stuck or at leaf node
     if depthRemaining is 0 or not gameState.getLegalActions(currAgentNum):
       return self.evaluationFunction(gameState)
 
@@ -243,10 +254,23 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
       All ghosts should be modeled as choosing uniformly at random from their
       legal moves.
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
-'''
-  def runExpectimax(self, gameState, currAgentNum, depthRemaining, alpha, beta):
+    possibleActions = gameState.getLegalActions(0)
+    if not possibleActions:
+      return Directions.STOP
+
+    # Run Expectimax for each initial action possibility
+    bestAction = Directions.STOP
+    bestScore = None
+    for action in possibleActions:
+      newState = gameState.generateSuccessor(0, action)
+      newScore = self.runExpectimax(newState, 1, self.depth)
+      if bestScore is None or newScore > bestScore:
+        bestScore = newScore
+        bestAction = action
+    return bestAction
+
+  def runExpectimax(self, gameState, currAgentNum, depthRemaining):
+    # Return if stuck or at leaf node
     if depthRemaining is 0 or not gameState.getLegalActions(currAgentNum):
       return self.evaluationFunction(gameState)
 
@@ -258,34 +282,49 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
       nextDepthRemaining -= 1
 
     bestScore = None
+    legalActions = gameState.getLegalActions(currAgentNum)
+    # Pacman uses a normal minmax algorithm
     if currAgentNum is 0:   # Evaluate max
-      for action in gameState.getLegalActions(currAgentNum):
+      for action in legalActions:
         successor = gameState.generateSuccessor(currAgentNum, action)
-        newScore = self.runExpectimax(successor, nextAgentNum,
-                                     nextDepthRemaining)
-        # If new score is the best, set best
-        if bestScore is None or newScore > bestScore:
-          bestScore = newScore
-        # If new score is more than alpha, change alpha
-        if bestScore > newAlpha:
-          newAlpha = bestScore
-        # Stop searching nodes if not viable
-        if newBeta <= newAlpha:
-          break
-    else:   # Evaluate min
-      
+        currScore = self.runExpectimax(successor, nextAgentNum, nextDepthRemaining)
+        # If new score is the maximum, save that value and the action
+        if bestScore is None or currScore > bestScore:
+          bestScore = currScore
+    # Ghosts evaluated based on probability
+    else:   # Evaluate average
+      totalScore = 0
+      for action in legalActions:
+        successor = gameState.generateSuccessor(currAgentNum, action)
+        totalScore += self.runExpectimax(successor, nextAgentNum, nextDepthRemaining)
+      # 'Best' score is the average of all child nodes
+      bestScore = totalScore / len(legalActions)
     return bestScore
-'''
+
 
 def betterEvaluationFunction(currentGameState):
   """
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
     evaluation function (question 5).
 
-    DESCRIPTION: <write something here so we know what you did>
+    DESCRIPTION: Takes the basic eval score and subtracts the Manhattan
+                 distance to the nearest food pellet.  I know this is 
+                 incredibly boring and simple -- sorry 'bout it.
   """
-  "*** YOUR CODE HERE ***"
-  util.raiseNotDefined()
+  pos = currentGameState.getPacmanPosition()
+
+  # Calculate distance to nearest food to subtract from score
+  foodList = currentGameState.getFood().asList()
+  foodDistances = []
+  for food in foodList:
+    foodDistances.append(manhattanDistance(pos, food))
+  if len(foodDistances) is 0: # Can't take min of empty list
+    nearestFoodDist = 0
+  else:
+    nearestFoodDist = min(foodDistances)
+
+  return currentGameState.getScore() - nearestFoodDist
+
 
 # Abbreviation
 better = betterEvaluationFunction
