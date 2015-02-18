@@ -37,16 +37,21 @@ class ValueIterationAgent(ValueEstimationAgent):
     self.values = util.Counter() # A Counter is a dict with default 0
 
     states = self.mdp.getStates()
-    for i in range(self.iterations):
+    for _ in range(self.iterations):
+      # Credit to Anonymous on Piazza for suggesting I use self.values.copy()
+      newValues = self.values.copy()
+      # For each state, get the best possible q-value for each action from
+      # that state and make it the new value of the state
       for state in states:
         possActions = self.mdp.getPossibleActions(state)
 
-        # Generate list of Q-Values from each action taken from that state
+        # Generate list of Q-Values from each action possible from that state
         actionQValues = [self.getQValue(state, act) for act in possActions]
 
         # Set self.values of that state based on best computed value
         if actionQValues:
-          self.values[state] = max(actionQValues)
+          newValues[state] = max(actionQValues)
+      self.values = newValues
 
   def getValue(self, state):
     """
@@ -95,7 +100,6 @@ class ValueIterationAgent(ValueEstimationAgent):
       if bestQValue is None or currentQValue > bestQValue:
         bestQValue = currentQValue
         bestAction = action
-    print(bestQValue, state)
 
     # Return action with the best Q-Value
     return bestAction
